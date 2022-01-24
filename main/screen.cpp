@@ -70,6 +70,8 @@ void screen_clear() {
 void screen_print(const char *text, uint8_t x, uint8_t y, uint8_t alignment) {
   DEBUG_MSG(text);
 
+  Serial.printf("Screen: %s\n", text);
+
   if (!display)
     return;
 
