@@ -33,7 +33,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //#define T_BEAM_V07  // AKA Rev0 (first board released)
 #define T_BEAM_V10  // AKA Rev1 (second board released), also for "v1.1"
 
-#define MIN_DIST                68.0       // Minimum distance in meters from the last sent location before we can send again. A hex is about 340m.
+#define MIN_DIST                20.0       // Minimum distance in meters from the last sent location before we can send again. A hex is about 340m.
 #define STATIONARY_TX_INTERVAL  ( 2 * 60)  // If no minimum movement, the LoRa frame will still be sent once every N seconds
 
 #define REST_WAIT               (30 * 60)  // If we still haven't moved in this many seconds, start sending even slower
@@ -44,7 +44,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define BATTERY_LOW_VOLTAGE 3.4  // Below this voltage, power off until USB power allows charging
 
 #define LORAWAN_PORT 2              // FPort for Uplink messages -- must match Helium Console Decoder script!
-#define LORAWAN_CONFIRMED_EVERY 0  // Send confirmed message for ACK every N messages (0 means never, 1 means always, 2 every-other-one..)
+#define LORAWAN_CONFIRMED_EVERY 10  // Send confirmed message for ACK every N messages (0 means never, 1 means always, 2 every-other-one..)
 #define LORAWAN_SF DR_SF7           // Spreading factor (recommended DR_SF7 for network map purposes, DR_SF10 is slower/more-reach)
 
 // Deadzone defines a circular area where no map packets will originate.
@@ -57,7 +57,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define DEADZONE_LON -123.4567
 #endif
 #ifndef DEADZONE_RADIUS_M
-#define DEADZONE_RADIUS_M 500  // meters
+#define DEADZONE_RADIUS_M 0  // meters
 #endif
 
 // Uncomment to enable discarding network settings by long pressing second button
@@ -83,7 +83,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 // If you are having difficulty sending messages to TTN after the first successful send,
 // uncomment the next option and experiment with values (~ 1 - 5)
-//#define CLOCK_ERROR             5
+#define CLOCK_ERROR             5
 
 // If using a single-channel gateway, uncomment this next option and set to your gateway's channel
 //#define SINGLE_CHANNEL_GATEWAY  0
@@ -98,7 +98,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #endif
 
 // Verbose LoRa message callback reporting
-// #define DEBUG_LORA_MESSAGES
+#define DEBUG_LORA_MESSAGES
 
 // -----------------------------------------------------------------------------
 // Custom messages
