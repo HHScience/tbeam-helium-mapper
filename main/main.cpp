@@ -141,11 +141,26 @@ void buildPacket(uint8_t txBuffer[]) {
   txBuffer[10] = sats & 0xFF;
 }
 
+void buildEmptyPacket(uint8_t txBuffer[]) {
+  txBuffer[0] = 0;
+  txBuffer[1] = 0;
+  txBuffer[2] = 0;
+  txBuffer[3] = 0;
+  txBuffer[4] = 0;
+  txBuffer[5] = 0;
+  txBuffer[6] = 0;
+  txBuffer[7] = 0;
+  txBuffer[8] = 0;
+  txBuffer[9] = 0;
+  txBuffer[10] = 0;
+}
+
 // Send a packet, if one is warranted
 bool trySend() {
   float now_lat = gps_latitude();
   float now_long = gps_longitude();
   unsigned long int now = millis();
+  bool valid_gps;
 
   // Here we try to filter out bogus GPS readings.
   // It's not correct, and there should be a better indication from GPS that the
@@ -153,8 +168,11 @@ bool trySend() {
   if (gps_hdop() <= 0 || gps_hdop() > 50 || now_lat == 0.0               // Not fair to the whole equator
       || now_lat > 90.0 || now_lat < -90.0 || now_long == 0.0            // Not fair to King George
       || now_long < -180.0 || now_long > 180.0 || gps_altitude() == 0.0  // Not fair to the ocean
-      || gps_sats() < 4)
-    return false;  // Rejected as bogus GPS reading.
+      || gps_sats() < 4) {
+    valid_gps = false; // Rejected as bogus GPS reading.
+  } else { 
+    valid_gps = true; 
+  }
 
   // Don't attempt to send or update until we join Helium
   if (!isJoined)
@@ -167,51 +185,55 @@ bool trySend() {
   // Check if there is not a current TX/RX job running
   if (LMIC.opmode & OP_TXRXPEND)
     return false;
+  
+  if (valid_gps) {
+    // distance from last transmitted location
+    float dist_moved = gps_distanceBetween(last_send_lat, last_send_lon, now_lat, now_long);
+    float deadzone_dist = gps_distanceBetween(deadzone_lat, deadzone_lon, now_lat, now_long);
+    in_deadzone = (deadzone_dist <= deadzone_radius_m);
 
-  // distance from last transmitted location
-  float dist_moved = gps_distanceBetween(last_send_lat, last_send_lon, now_lat, now_long);
-  float deadzone_dist = gps_distanceBetween(deadzone_lat, deadzone_lon, now_lat, now_long);
-  in_deadzone = (deadzone_dist <= deadzone_radius_m);
+    Serial.printf("[Time %lu / %us, Moved %dm in %lus %c]\n", (now - last_send_ms) / 1000, tx_interval_s,
+    (int32_t)dist_moved, (now - last_moved_ms) / 1000, in_deadzone ? 'D' : '-');
 
-  /*
-  Serial.printf("[Time %lu / %us, Moved %dm in %lus %c]\n", (now - last_send_ms) / 1000, tx_interval_s,
-  (int32_t)dist_moved, (now - last_moved_ms) / 1000, in_deadzone ? 'D' : '-');
-  */
+    // Deadzone means we don't send unless asked
+    if (in_deadzone && !justSendNow)
+      return false;
 
-  // Deadzone means we don't send unless asked
-  if (in_deadzone && !justSendNow)
-    return false;
+    char because = '?';
+    if (justSendNow) {
+      justSendNow = false;
+      Serial.println("** JUST_SEND_NOW");
+      because = '>';
+    } else if (dist_moved > min_dist_moved) {
+      Serial.println("** MOVING");
+      last_moved_ms = now;
+      because = 'D';
+    } else if (now - last_send_ms > tx_interval_s * 1000) {
+      Serial.println("** TIME");
+      because = 'T';
+    } else {
+      return false;  // Nothing to do, go home early
+    }
 
-  char because = '?';
-  if (justSendNow) {
-    justSendNow = false;
-    Serial.println("** JUST_SEND_NOW");
-    because = '>';
-  } else if (dist_moved > min_dist_moved) {
-    Serial.println("** MOVING");
-    last_moved_ms = now;
-    because = 'D';
-  } else if (now - last_send_ms > tx_interval_s * 1000) {
-    Serial.println("** TIME");
-    because = 'T';
+    // SEND a Packet!
+    // digitalWrite(RED_LED, LOW);
+
+    // The first distance-moved is crazy, since has no origin.. don't put it on
+    // screen.
+    if (dist_moved > 1000000)
+      dist_moved = 0;
+
+    snprintf(buffer, sizeof(buffer), "\n%d %c %4lus %4.0fm ", ttn_get_count(), because, (now - last_send_ms) / 1000,
+              dist_moved);
+    // prepare the LoRa frame
+    buildPacket(txBuffer);
+    
   } else {
-    return false;  // Nothing to do, go home early
+    sleep(30);
+    buildEmptyPacket(txBuffer);
+    screen_print(buffer);
+    Serial.println("Transmitting empty Packet for debugging purposes");
   }
-
-  // SEND a Packet!
-  // digitalWrite(RED_LED, LOW);
-
-  // The first distance-moved is crazy, since has no origin.. don't put it on
-  // screen.
-  if (dist_moved > 1000000)
-    dist_moved = 0;
-
-  snprintf(buffer, sizeof(buffer), "\n%d %c %4lus %4.0fm ", ttn_get_count(), because, (now - last_send_ms) / 1000,
-           dist_moved);
-  screen_print(buffer);
-
-  // prepare the LoRa frame
-  buildPacket(txBuffer);
 
   // Want an ACK on this one?
   bool confirmed = (LORAWAN_CONFIRMED_EVERY > 0) && (ttn_get_count() % LORAWAN_CONFIRMED_EVERY == 0);
@@ -223,10 +245,18 @@ bool trySend() {
   }
 
   // send it!
-  packetQueued = true;
-  if (!ttn_send(txBuffer, sizeof(txBuffer), LORAWAN_PORT, confirmed)) {
-    Serial.println("Surprise send failure!");
-    return false;
+  if (valid_gps) {
+    packetQueued = true;
+    if (!ttn_send(txBuffer, sizeof(txBuffer), LORAWAN_PORT, confirmed)) {
+      Serial.println("Surprise send failure!");
+      return false;
+    }
+  } else {
+    packetQueued = true;
+    if (!ttn_send(txBuffer, sizeof(txBuffer), LORAWAN_DEBUG_PORT, confirmed)) {
+      Serial.println("Surprise send failure!");
+      return false;
+    }
   }
 
   last_send_ms = now;
