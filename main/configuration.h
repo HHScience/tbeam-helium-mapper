@@ -42,14 +42,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 // (If you set this to a very small value, it will still be rate-limited by how often your Region allows back-to-back
 // Uplink packets.) LARGER distance: Fewer packets, might miss some hexes, conserves DC, battery might last longer Note
 // that a hex is about 340m across.  Ideally, you want at least two uplinks in each hex to map it.
-#define MIN_DIST 70.0  // Minimum distance in meters from the last sent location before we  send again.
+#define MIN_DIST 100.0  // Minimum distance in meters from the last sent location before we send again.
 
 // If we are not moving at least MIN_DIST meters away from the last uplink, when should we send a redundant
 // Mapper Uplink from the same location?  This Heartbeat or ping isn't all that important for mapping, but might be
 // useful for time-at-location tracking or other monitoring.  You can safely set this value very high.
-#define STATIONARY_TX_INTERVAL (5 * 60)  // Send one uplink at least once every N seconds
+#define STATIONARY_TX_INTERVAL (0.5 * 60)  // Send one uplink at least once every N seconds
 #define NEVER_REST 0  // Change to 1 if you want to always send at THIS rate, with no slowing or sleeping.
-
 
 // This last stage is a low-power sleep to conserve battery when the Mapper has not moved for a long time.
 // This one is a difficult compromise:  Waking up to boot & power on the GPS is not a fast operation,
@@ -65,8 +64,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 // When searching for a GPS Fix, we may never find one due to obstruction, noise, or reduced availability.
 // Note that GPS Lost also counts as no-movement, so the Sleep tier above still applies
-#define GPS_LOST_WAIT (5 * 60)   // How long to wait for a GPS fix before declaring failure
-#define GPS_LOST_PING (15 * 60)  // Without GPS reception, how often to send a non-mapper status packet
+#define GPS_LOST_WAIT (2 * 60)   // How long to wait for a GPS fix before declaring failure
+#define GPS_LOST_PING (0.5 * 60)  // Without GPS reception, how often to send a non-mapper status packet
 
 // Below this voltage, power off until USB power allows charging.  The PMIC also has a (safety) turn-off much lower than
 // this. We use a conservative 3.3v here since the battery will last longer.
@@ -89,10 +88,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 // them out for having no coordinates.  It doesn't hurt anything, as they are correctly filtered by the Decoder, but if
 // you don't like seeing Integration Errors, then set these to 0.  Set these to 1 for extra non-mapper messages.
 #ifndef SEND_GPSLOST_UPLINKS
-#define SEND_GPSLOST_UPLINKS 0  // GPS Lost messages
+#define SEND_GPSLOST_UPLINKS 1  // GPS Lost messages
 #endif
 #ifndef SEND_STATUS_UPLINKS
-#define SEND_STATUS_UPLINKS  0  // USB Connnect/disconnect messages
+#define SEND_STATUS_UPLINKS  1  // Booted message
 #endif
 
 // -----------------------------------------------------------------------------
@@ -112,7 +111,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 // If you are having difficulty sending messages to TTN after the first successful send,
 // uncomment the next option and experiment with values (~ 1 - 5)
-//#define CLOCK_ERROR             5
+#define CLOCK_ERROR             5
 
 // If using a single-channel gateway, uncomment this next option and set to your gateway's channel
 //#define SINGLE_CHANNEL_GATEWAY  0
@@ -127,7 +126,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #endif
 
 // Verbose LoRa message callback reporting
-// #define DEBUG_LORA_MESSAGES
+#define DEBUG_LORA_MESSAGES
 
 // -----------------------------------------------------------------------------
 // Custom messages
