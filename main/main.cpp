@@ -66,14 +66,11 @@ double dist_moved = 0;                  // Distance in m from last uplink
 /* Defaults that can be overwritten by downlink messages */
 /* (32-bit int seconds allows for 50 days) */
 unsigned int stationary_tx_interval_s;  // prefs STATIONARY_TX_INTERVAL
-unsigned int rest_wait_s;               // prefs REST_WAIT
-unsigned int rest_tx_interval_s;        // prefs REST_TX_INTERVAL
 
 unsigned int tx_interval_s;  // Currently-active time interval
 
 enum activity_state {
   ACTIVITY_MOVING,
-  ACTIVITY_REST,
   ACTIVITY_SLEEP,
   ACTIVITY_GPS_LOST,
   ACTIVITY_WOKE,
@@ -322,8 +319,6 @@ void mapper_restore_prefs(void) {
   if (p.begin("mapper", true))  // Read-only
   {
     min_dist_moved = p.getFloat("min_dist", MIN_DIST);
-    rest_wait_s = p.getUInt("rest_wait", REST_WAIT);
-    rest_tx_interval_s = p.getUInt("rest_tx", REST_TX_INTERVAL);
     stationary_tx_interval_s = p.getUInt("tx_interval", STATIONARY_TX_INTERVAL);
     if (sizeof(lorawan_sf) != sizeof(unsigned char))
       Serial.println("Error!  size mismatch for sf");
@@ -333,8 +328,6 @@ void mapper_restore_prefs(void) {
   } else {
     Serial.println("No Mapper prefs -- using defaults.");
     min_dist_moved = MIN_DIST;
-    rest_wait_s = REST_WAIT;
-    rest_tx_interval_s = REST_TX_INTERVAL;
     stationary_tx_interval_s = STATIONARY_TX_INTERVAL;
     lorawan_sf = LORAWAN_SF;
   }
@@ -798,9 +791,6 @@ void update_activity() {
       case ACTIVITY_MOVING:
         Serial.println("//MOVING//");
         break;
-      case ACTIVITY_REST:
-        Serial.println("//REST//");
-        break;
       case ACTIVITY_SLEEP:
         Serial.println("//SLEEP//");
         break;
@@ -835,7 +825,7 @@ void update_activity() {
   // We're only staying awake until we got a good GPS fix or gave up, NOT until we send a mapper report.
   if (active_state == ACTIVITY_WOKE) {
     if (tGPS.sentencesWithFix() != woke_fix_count && mapper_uplink() != MAPPER_UPLINK_BADFIX)
-      active_state = ACTIVITY_REST;
+      active_state = ACTIVITY_SLEEP;
     else if (now - woke_time_ms > gps_lost_wait_s * 1000)
       active_state = ACTIVITY_GPS_LOST;
     return;  // else stay in WOKE until we make a good report
@@ -856,37 +846,13 @@ void update_activity() {
     active_state = ACTIVITY_SLEEP;
   } else if (now - last_fix_time > gps_lost_wait_s * 1000) {
     active_state = ACTIVITY_GPS_LOST;
-  } else if (now - last_moved_ms > rest_wait_s * 1000) {
-    active_state = ACTIVITY_REST;
   } else {
     active_state = ACTIVITY_MOVING;
-  }
-
-  {
-    boolean had_usb_power = have_usb_power;
-    have_usb_power = (axp192_found && axp.isVBUSPlug());
-
-    if (have_usb_power && !had_usb_power) {
-      usb_power_count++;
-      status_uplink(STATUS_USB_ON, usb_power_count);
-    }
-    if (!have_usb_power && had_usb_power) {
-      status_uplink(STATUS_USB_OFF, usb_power_count);
-    }
-  }
-
-  // If we have USB power, keep GPS on all the time; don't sleep
-  if (have_usb_power) {
-    if (active_state == ACTIVITY_SLEEP)
-      active_state = ACTIVITY_REST;
   }
 
   switch (active_state) {
     case ACTIVITY_MOVING:
       tx_interval_s = stationary_tx_interval_s;
-      break;
-    case ACTIVITY_REST:
-      tx_interval_s = rest_tx_interval_s;
       break;
     case ACTIVITY_GPS_LOST:
       tx_interval_s = gps_lost_ping_s;

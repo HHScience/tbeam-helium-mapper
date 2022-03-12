@@ -50,9 +50,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define STATIONARY_TX_INTERVAL (5 * 60)  // Send one uplink at least once every N seconds
 #define NEVER_REST 0  // Change to 1 if you want to always send at THIS rate, with no slowing or sleeping.
 
-// After being stationary for a long while, we move to a slower heartbeat interval:
-#define REST_WAIT           (20 * 60)  // If we still haven't moved in this many seconds, start sending even slower..
-#define REST_TX_INTERVAL    (30 * 60)  // Slow resting ping frequency in seconds
 
 // This last stage is a low-power sleep to conserve battery when the Mapper has not moved for a long time.
 // This one is a difficult compromise:  Waking up to boot & power on the GPS is not a fast operation,
