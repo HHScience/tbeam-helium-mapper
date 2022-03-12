@@ -60,6 +60,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define SLEEP_WAIT          (2 * 60 * 60)  // If we STILL haven't moved in this long, turn off the GPS to save power
 // For a vehicle application where USB Power appears BEFORE motion, this can be set very high without missing anything:
 #define SLEEP_TX_INTERVAL   (1 * 60 * 60)  // Wake up and check position every now and then to see if movement happened
+// After waking up from sleep, how long to stay awake if we haven't yet got a GPS fix
+#define SLEEP_WAKE_TIME (10 * 60)
 
 // When searching for a GPS Fix, we may never find one due to obstruction, noise, or reduced availability.
 // Note that GPS Lost also counts as no-movement, so the Sleep tier above still applies

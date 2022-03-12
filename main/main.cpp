@@ -85,6 +85,7 @@ enum mapper_uplink_result { MAPPER_UPLINK_SUCCESS, MAPPER_UPLINK_BADFIX, MAPPER_
 /* Maybe these moves to prefs eventually? */
 unsigned int sleep_wait_s = SLEEP_WAIT;
 unsigned int sleep_tx_interval_s = SLEEP_TX_INTERVAL;
+unsigned int sleep_wake_time_s = SLEEP_WAKE_TIME;
 
 unsigned int gps_lost_wait_s = GPS_LOST_WAIT;
 unsigned int gps_lost_ping_s = GPS_LOST_PING;
@@ -829,6 +830,12 @@ void update_activity() {
     else if (now - woke_time_ms > gps_lost_wait_s * 1000)
       active_state = ACTIVITY_GPS_LOST;
     return;  // else stay in WOKE until we make a good report
+  }
+
+  // Here we were unable to get a GPS fix for SLEEP_WAKE_TIME seconds
+  // To save power, go back to sleep
+  if ((now - woke_time_ms > sleep_wake_time_s * 1000) && tGPS.sentencesWithFix() == woke_fix_count) {
+    active_state = ACTIVITY_SLEEP;
   }
 
   if (active_state == ACTIVITY_SLEEP) {
