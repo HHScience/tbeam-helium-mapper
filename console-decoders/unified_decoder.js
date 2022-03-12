@@ -42,12 +42,6 @@ function Decoder(bytes, port) {
         case 1:
           decoded.status = "BOOT";
           break;
-        case 2:
-          decoded.status = "USB ON";
-          break
-        case 3:
-          decoded.status = "USB OFF";
-          break;
       }
       break;
     case 6: // Lost GPS

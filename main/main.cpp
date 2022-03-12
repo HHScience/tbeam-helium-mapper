@@ -49,8 +49,6 @@
 #define FPORT_GPSLOST 6
 
 #define STATUS_BOOT 1
-#define STATUS_USB_ON 2
-#define STATUS_USB_OFF 3
 
 // Defined in ttn.ino
 void ttn_register(void (*callback)(uint8_t message));
@@ -119,6 +117,8 @@ char sf_name[40];
 
 unsigned long int ack_req = 0;
 unsigned long int ack_rx = 0;
+
+static boolean booted = false;
 
 // Store Lat & Long in six bytes of payload
 void pack_lat_lon(double lat, double lon) {
@@ -694,6 +694,8 @@ void setup() {
   if (!axp192_found)
     Serial.println("** Missing AXP192! **\n");
 
+  booted = 1;
+
 }
 
 // Should be around 0.5mA ESP32 consumption, plus OLED controller and PMIC overhead.
@@ -938,7 +940,6 @@ const char *find_irq_name(void) {
 
 void loop() {
   static uint32_t last_fix_count = 0;
-  static boolean booted = true;
   uint32_t now_fix_count;
   uint32_t now = millis();
 
@@ -966,8 +967,8 @@ void loop() {
   update_activity();
 
   if (booted) {
-    // status_uplink(STATUS_BOOT, 0);
-    booted = 0;
+    status_uplink(STATUS_BOOT, 0);
+    booted = 0; // So we don't send status uplink again
   }
 
   // We have no GPS signal
