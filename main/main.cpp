@@ -63,12 +63,6 @@ double last_send_lat = 0;               // Last known location
 double last_send_lon = 0;               //
 double dist_moved = 0;                  // Distance in m from last uplink
 
-// Deadzone (no uplink) location and radius
-double deadzone_lat = DEADZONE_LAT;
-double deadzone_lon = DEADZONE_LON;
-double deadzone_radius_m = DEADZONE_RADIUS_M;
-boolean in_deadzone = false;
-
 /* Defaults that can be overwritten by downlink messages */
 /* (32-bit int seconds allows for 50 days) */
 unsigned int stationary_tx_interval_s;  // prefs STATIONARY_TX_INTERVAL
@@ -281,17 +275,6 @@ enum mapper_uplink_result mapper_uplink() {
 
   // distance from last transmitted location
   double dist_moved = tGPS.distanceBetween(last_send_lat, last_send_lon, now_lat, now_lon);
-  double deadzone_dist = tGPS.distanceBetween(deadzone_lat, deadzone_lon, now_lat, now_lon);
-  in_deadzone = (deadzone_dist <= deadzone_radius_m);
-
-  /*
-  Serial.printf("[Time %lu / %us, Moved %dm in %lus %c]\n", (now - last_send_ms) / 1000, tx_interval_s,
-  (int32_t)dist_moved, (now - last_moved_ms) / 1000, in_deadzone ? 'D' : '-');
-  */
-
-  // Deadzone means we don't send unless asked
-  if (in_deadzone && !justSendNow)
-    return MAPPER_UPLINK_NOTYET;
 
   char because = '?';
   if (justSendNow) {
@@ -739,7 +722,6 @@ void setup() {
   if (!axp192_found)
     Serial.println("** Missing AXP192! **\n");
 
-  Serial.printf("Deadzone: %f.0m @ %f, %f\n", deadzone_radius_m, deadzone_lat, deadzone_lon);
 }
 
 // Should be around 0.5mA ESP32 consumption, plus OLED controller and PMIC overhead.

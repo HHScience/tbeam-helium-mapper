@@ -87,21 +87,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 // for moving vehicles and reasonable mapping observations.
 #define LORAWAN_SF DR_SF7  // Spreading factor (recommended DR_SF7 for network map purposes)
 
-// Deadzone defines a circular area where no map packets will originate.
-// This is useful to avoid sending many redundant packets in your own driveway or office, or just for local privacy.
-// You can "re-center" the deadzone from the screen menu.
-// Set Radius to zero to disable altogether.
-// (Thanks to @Woutch for the name)
-#ifndef DEADZONE_LAT
-#define DEADZONE_LAT 34.5678
-#endif
-#ifndef DEADZONE_LON
-#define DEADZONE_LON -123.4567
-#endif
-#ifndef DEADZONE_RADIUS_M
-#define DEADZONE_RADIUS_M 500  // meters
-#endif
-
 // There are some extra non-Mapper Uplink messages we can send, but there's no good way to avoid sending these
 // to all Integrations from the Decoder.  This causes (normal) Error messages on the Console because Mapper will throw
 // them out for having no coordinates.  It doesn't hurt anything, as they are correctly filtered by the Decoder, but if
