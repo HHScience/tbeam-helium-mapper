@@ -41,7 +41,6 @@
 
 #include "configuration.h"
 #include "gps.h"
-#include "screen.h"
 #include "sleep.h"
 #include "ttn.h"
 
@@ -106,19 +105,11 @@ float min_dist_moved = MIN_DIST;
 AXP20X_Class axp;
 bool pmu_irq = false;  // true when PMU IRQ pending
 
-bool oled_found = false;
 bool axp192_found = false;
-uint8_t oled_addr = 0;  // i2c address of OLED controller
 
 bool packetQueued;
 bool isJoined = false;
 
-bool screen_stay_on = false;
-bool screen_stay_off = false;
-bool is_screen_on = true;
-int screen_idle_off_s = SCREEN_IDLE_OFF_S;
-uint32_t screen_last_active_ms = 0;
-boolean in_menu = false;
 boolean have_usb_power = true;
 uint8_t usb_power_count = 0;
 
@@ -199,7 +190,6 @@ void build_mapper_packet() {
 boolean send_uplink(uint8_t *txBuffer, uint8_t length, uint8_t fport, boolean confirmed) {
   if (confirmed) {
     Serial.println("ACK requested");
-    screen_print("? ");
     digitalWrite(RED_LED, LOW);  // Light LED
     ack_req++;
   }
@@ -216,9 +206,6 @@ boolean send_uplink(uint8_t *txBuffer, uint8_t length, uint8_t fport, boolean co
   if (ttn_get_count() > MAX_FCOUNT) {
     Serial.println("FCount Rollover!");
 
-    // I don't understand why this doesn't show at all
-    screen_print("\n\nRollover Reset!\n");
-    screen_update();
     delay(1000);  // Give some time to read the screen
 
     ttn_erase_prefs();
@@ -237,7 +224,6 @@ bool status_uplink(uint8_t status, uint8_t value) {
   txBuffer[7] = status;
   txBuffer[8] = value;
   Serial.printf("Tx: STATUS %d %d\n", status, value);
-  screen_print("\nTX STATUS ");
   return send_uplink(txBuffer, 9, FPORT_STATUS, 0);
 }
 
@@ -254,7 +240,6 @@ bool gpslost_uplink(void) {
   txBuffer[8] = (minutes_lost >> 8) & 0xFF;
   txBuffer[9] = minutes_lost & 0xFF;
   Serial.printf("Tx: GPSLOST %d\n", minutes_lost);
-  screen_print("\nTX GPSLOST ");
   return send_uplink(txBuffer, 10, FPORT_GPSLOST, 0);
 }
 
@@ -331,7 +316,6 @@ enum mapper_uplink_result mapper_uplink() {
 
   snprintf(buffer, sizeof(buffer), "\n%d %c %4lus %4.0fm ", ttn_get_count(), because, (now - last_send_ms) / 1000,
            dist_moved);
-  screen_print(buffer);
 
   // prepare the LoRa frame
   build_mapper_packet();
@@ -347,7 +331,6 @@ enum mapper_uplink_result mapper_uplink() {
   last_send_lat = now_lat;
   last_send_lon = now_lon;
 
-  screen_last_active_ms = now;
   return MAPPER_UPLINK_SUCCESS;  // We did it!
 }
 
@@ -391,10 +374,6 @@ void mapper_save_prefs(void) {
 }
 
 void mapper_erase_prefs(void) {
-#if 0 
-  nvs_flash_erase(); // erase the NVS partition and...
-  nvs_flash_init(); // initialize the NVS partition.
-#endif
   Preferences p;
   if (p.begin("mapper", false)) {
     p.clear();
@@ -408,7 +387,6 @@ void lora_msg_callback(uint8_t message) {
 #ifdef DEBUG_LORA_MESSAGES
   {
     snprintf(buffer, sizeof(buffer), "## MSG %d\n", message);
-    screen_print(buffer);
   }
   if (EV_JOIN_TXCOMPLETE == message)
     Serial.println("# JOIN_TXCOMPLETE");
@@ -449,15 +427,10 @@ void lora_msg_callback(uint8_t message) {
     seen_joining = true;
   if (!isJoined && seen_joined && seen_joining) {
     isJoined = true;
-    screen_print("Joined Helium!\n");
     ttn_set_sf(lorawan_sf);  // Joining seems to leave it at SF10?
     ttn_get_sf_name(sf_name, sizeof(sf_name));
   }
 
-  if (EV_TXSTART == message) {
-    screen_print("+\v");
-    screen_update();
-  }
   // We only want to say 'packetSent' for our packets (not packets needed for
   // joining)
   if (EV_TXCOMPLETE == message && packetQueued) {
@@ -471,7 +444,6 @@ void lora_msg_callback(uint8_t message) {
     digitalWrite(RED_LED, HIGH);
     ack_rx++;
     Serial.printf("ACK! %lu / %lu\n", ack_rx, ack_req);
-    screen_print("! ");
   }
 
   if (EV_RXCOMPLETE == message || EV_RESPONSE == message) {
@@ -481,7 +453,6 @@ void lora_msg_callback(uint8_t message) {
     ttn_response(&port, data, len);
 
     snprintf(buffer, sizeof(buffer), "\nRx: %d on P%d\n", len, port);
-    screen_print(buffer);
 
     Serial.printf("Downlink on port: %d = ", port);
     for (int i = 0; i < len; i++) {
@@ -503,7 +474,6 @@ void lora_msg_callback(uint8_t message) {
       if (new_distance > 0.0) {
         min_dist_moved = new_distance;
         snprintf(buffer, sizeof(buffer), "\nNew Dist: %.0fm\n", new_distance);
-        screen_print(buffer);
       }
 
       unsigned long int new_interval = data[2] << 8 | data[3];
@@ -515,14 +485,12 @@ void lora_msg_callback(uint8_t message) {
         }
         tx_interval_s = stationary_tx_interval_s;
         snprintf(buffer, sizeof(buffer), "\nNew Time: %.0lus\n", new_interval);
-        screen_print(buffer);
       }
 
       if (data[4]) {
         float new_low_voltage = data[4] / 100.00 + 2.00;
         battery_low_voltage = new_low_voltage;
         snprintf(buffer, sizeof(buffer), "\nNew LowBat: %.2fv\n", new_low_voltage);
-        screen_print(buffer);
       }
     }
   }
@@ -535,20 +503,8 @@ void scanI2Cdevice(void) {
     Wire.beginTransmission(addr);
     err = Wire.endTransmission();
     if (err == 0) {
-#if 0
-      Serial.print("I2C device found at address 0x");
-      if (addr < 16)
-        Serial.print("0");
-      Serial.print(addr, HEX);
-      Serial.println(" !");
-#endif
       nDevices++;
 
-      if (addr == 0x3C || addr == 0x78 || addr == 0x7E) {
-        oled_addr = addr;
-        oled_found = true;
-        Serial.printf("OLED at %02X\n", oled_addr);
-      }
       if (addr == AXP192_SLAVE_ADDRESS) {
         axp192_found = true;
         Serial.println("AXP192 PMU");
@@ -641,7 +597,7 @@ void axp192Init() {
     axp.setChgLEDMode(AXP20X_LED_BLINK_4HZ);
     // axp.setChgLEDMode(AXP20X_LED_OFF);
 
-#if 0
+
     Serial.printf("DCDC1: %s\n", axp.isDCDC1Enable() ? "ENABLE" : "DISABLE");
     Serial.printf("DCDC2: %s\n", axp.isDCDC2Enable() ? "ENABLE" : "DISABLE");
     Serial.printf("DCDC3: %s\n", axp.isDCDC3Enable() ? "ENABLE" : "DISABLE");
@@ -649,7 +605,7 @@ void axp192Init() {
     Serial.printf("LDO2: %s\n", axp.isLDO2Enable() ? "ENABLE" : "DISABLE");
     Serial.printf("LDO3: %s\n", axp.isLDO3Enable() ? "ENABLE" : "DISABLE");
     Serial.printf("Exten: %s\n", axp.isExtenEnable() ? "ENABLE" : "DISABLE");
-#endif
+
     // Fire an interrupt on falling edge.  Note that some IRQs repeat/persist.
     pinMode(PMU_IRQ, INPUT);
     gpio_pullup_en((gpio_num_t)PMU_IRQ);
@@ -734,6 +690,7 @@ void setup() {
 #ifdef DEBUG_PORT
   DEBUG_PORT.begin(SERIAL_BAUD);
 #endif
+
   wakeup();
 
   // Make sure WiFi and BT are off
@@ -762,32 +719,11 @@ void setup() {
 
   mapper_restore_prefs();  // Fetch saved settings
 
-  // Don't init display if we don't have one or we are waking headless due to a
-  // timer event
-  if (0 && wakeCause == ESP_SLEEP_WAKEUP_TIMER)
-    oled_found = false;  // forget we even have the hardware
-
-  // This creates the display object, so if we don't call it.. all screen ops are do-nothing.
-  if (oled_found)
-    screen_setup(oled_addr);
-  is_screen_on = true;
-
   // GPS power on, so it has time to setttle.
   axp.setPowerOutPut(AXP192_LDO3, AXP202_ON);
 
-  // Show logo on first boot (as opposed to wake)
-  if (bootCount <= 1) {
-    screen_print(APP_NAME " " APP_VERSION, 0, 0);  // Above the Logo
-    screen_print(APP_NAME " " APP_VERSION "\n");   // Add it to the log too
-
-    screen_show_logo();
-    screen_update();
-    delay(LOGO_DELAY);
-  }
-
   // Helium setup
   if (!ttn_setup()) {
-    screen_print("[ERR] Radio module not found!\n");
     sleep_forever();
   }
 
@@ -801,19 +737,16 @@ void setup() {
 
   // This is bad.. we can't find the AXP192 PMIC, so no menu key detect:
   if (!axp192_found)
-    screen_print("** Missing AXP192! **\n");
+    Serial.println("** Missing AXP192! **\n");
 
   Serial.printf("Deadzone: %f.0m @ %f, %f\n", deadzone_radius_m, deadzone_lat, deadzone_lon);
 }
 
 // Should be around 0.5mA ESP32 consumption, plus OLED controller and PMIC overhead.
 void low_power_sleep(uint32_t seconds) {
-  boolean was_screen_on = is_screen_on;
 
   Serial.printf("Sleep %d..\n", seconds);
   Serial.flush();
-
-  screen_off();
 
   digitalWrite(RED_LED, HIGH);  // LED Off
 
@@ -840,14 +773,10 @@ void low_power_sleep(uint32_t seconds) {
   // If we woke by keypress (7) then turn on the screen
   if (esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_GPIO) {
     // Try not to puke, but we pretend we moved if they hit a key, to exit SLEEP and restart timers
-    last_moved_ms = screen_last_active_ms = millis();
-    was_screen_on = true;  // Lies
+    last_moved_ms = millis();
     Serial.println("(GPIO)");
   }
   Serial.println("..woke");
-
-  if (was_screen_on)
-    screen_on();
 
   if (axp192_found) {
     axp.setPowerOutPut(AXP192_LDO3, AXP202_ON);  // GPS power
@@ -912,8 +841,6 @@ void update_activity() {
 
   if (axp192_found && axp.isBatteryConnect() && bat_volts < battery_low_voltage && charge_ma < 99.0) {
     Serial.println("Low Battery OFF");
-    screen_print("\nLow Battery OFF\n");
-    delay(4999);  // Give some time to read the screen
     clean_shutdown();
   }
 
@@ -930,7 +857,7 @@ void update_activity() {
     return;  // else stay in WOKE until we make a good report
   }
 
-  if (active_state == ACTIVITY_SLEEP && !in_menu) {
+  if (active_state == ACTIVITY_SLEEP) {
     low_power_sleep(tx_interval_s);
     active_state = ACTIVITY_WOKE;
     woke_time_ms = millis();
@@ -987,19 +914,6 @@ void update_activity() {
       // ???
       tx_interval_s = stationary_tx_interval_s;
       break;
-  }
-
-  // Has the screen been on for longer than idle time?
-  if (now - screen_last_active_ms > screen_idle_off_s * 1000) {
-    if (is_screen_on && !screen_stay_on) {
-      is_screen_on = false;
-      screen_off();
-    }
-  } else {  // Else we had some recent activity.  Turn on?
-    if (!is_screen_on && !screen_stay_off) {
-      is_screen_on = true;
-      screen_on();
-    }
   }
 }
 
@@ -1085,152 +999,9 @@ const char *find_irq_name(void) {
   return irq_name;
 }
 
-struct menu_entry {
-  const char *name;
-  void (*func)(void);
-};
-
-void menu_send_now(void) {
-  justSendNow = true;
-}
-void menu_power_off(void) {
-  screen_print("\nPOWER OFF...\n");
-  delay(4000);  // Give some time to read the screen
-  clean_shutdown();
-}
-void menu_flush_prefs(void) {
-  screen_print("\nFlushing Prefs!\n");
-  ttn_erase_prefs();
-  mapper_erase_prefs();
-  delay(5000);  // Give some time to read the screen
-  ESP.restart();
-}
-void menu_distance_plus(void) {
-  min_dist_moved += 5;
-}
-void menu_distance_minus(void) {
-  min_dist_moved -= 5;
-  if (min_dist_moved < 10)
-    min_dist_moved = 10;
-}
-void menu_time_plus(void) {
-  stationary_tx_interval_s += 10;
-}
-void menu_time_minus(void) {
-  stationary_tx_interval_s -= 10;
-  if (stationary_tx_interval_s < 10)
-    stationary_tx_interval_s = 10;
-}
-void menu_gps_passthrough(void) {
-  axp.setChgLEDMode(AXP20X_LED_BLINK_1HZ);
-  axp.setPowerOutPut(AXP192_LDO2, AXP202_OFF);  // Kill LORA radio
-  gps_passthrough();
-  // Does not return.
-}
-void menu_experiment(void) {
-#if 0
-  static boolean power_toggle = true;
-
-  Serial.printf("%f mA  %f mW\n", axp.getBattChargeCurrent() - axp.getBattDischargeCurrent(), axp.getBattInpower());
-
-  axp.setPowerOutPut(AXP192_LDO3,
-                     power_toggle ? AXP202_ON : AXP202_OFF);  // GPS main power
-  power_toggle = !power_toggle;
-#endif
-
-  Serial.println("sleep 15");
-
-#if 0
-  screen_end();
-
-  Serial.println("powering off..");
-  
-  //pinMode(I2C_SDA, OUTPUT);
-  //digitalWrite(I2C_SDA, HIGH);
-  axp.setPowerOutPut(AXP192_DCDC1, AXP202_OFF);  // OLED power, 1200mA max
-  pinMode(I2C_SCL, OUTPUT);
-  digitalWrite(I2C_SCL, HIGH);
- 
-  delay(5000);
-  Serial.println("back on");
-  axp.setPowerOutPut(AXP192_DCDC1, AXP202_ON);  // OLED power, 1200mA max
-  screen_setup();
-#endif
-  low_power_sleep(999);
-  Serial.println("done.");
-}
-
-void menu_deadzone_here(void) {
-  if (tGPS.location.isValid()) {
-    deadzone_lat = tGPS.location.lat();
-    deadzone_lon = tGPS.location.lng();
-    deadzone_radius_m = DEADZONE_RADIUS_M;
-  }
-}
-void menu_no_deadzone(void) {
-  deadzone_radius_m = 0.0;
-}
-
-void menu_stay_on(void) {
-  screen_stay_on = !screen_stay_on;
-}
-
-void menu_gps_reset(void) {
-  gps_full_reset();
-}
-
 dr_t sf_list[] = {DR_SF7, DR_SF8, DR_SF9, DR_SF10};
 #define SF_ENTRIES (sizeof(sf_list) / sizeof(sf_list[0]))
 uint8_t sf_index = 0;
-
-void menu_change_sf(void) {
-  sf_index++;
-  if (sf_index >= SF_ENTRIES)
-    sf_index = 0;
-
-  lorawan_sf = sf_list[sf_index];
-  ttn_set_sf(lorawan_sf);
-  ttn_get_sf_name(sf_name, sizeof(sf_name));
-  Serial.printf("New SF: %s\n", sf_name);
-}
-
-struct menu_entry menu[] = {
-    {"Send Now", menu_send_now},           {"Power Off", menu_power_off},     {"Distance +", menu_distance_plus},
-    {"Distance -", menu_distance_minus},   {"Time +", menu_time_plus},        {"Time -", menu_time_minus},
-    {"Change SF", menu_change_sf},         {"Full Reset", menu_flush_prefs},  {"USB GPS", menu_gps_passthrough},
-    {"Deadzone Here", menu_deadzone_here}, {"No Deadzone", menu_no_deadzone}, {"Stay On", menu_stay_on},
-    {"GPS Reset", menu_gps_reset},         {"Experiment", menu_experiment}};
-#define MENU_ENTRIES (sizeof(menu) / sizeof(menu[0]))
-
-const char *menu_prev;
-const char *menu_cur;
-const char *menu_next;
-boolean is_highlighted = false;
-int menu_entry = 0;
-static uint32_t menu_idle_start = 0;  // what tick should we call this press long enough
-
-void menu_press(void) {
-  if (in_menu)
-    menu_entry = (menu_entry + 1) % MENU_ENTRIES;
-  else
-    in_menu = true;
-
-  menu_prev = menu[(menu_entry - 1) % MENU_ENTRIES].name;
-  menu_cur = menu[menu_entry].name;
-  menu_next = menu[(menu_entry + 1) % MENU_ENTRIES].name;
-
-  menu_idle_start = millis();
-}
-
-void menu_selected(void) {
-  menu_idle_start = millis();
-  menu[menu_entry].func();
-}
-
-void update_screen(void) {
-  screen_header(tx_interval_s, min_dist_moved, sf_name, in_deadzone, screen_stay_on, never_rest);
-  screen_body(in_menu, menu_prev, menu_cur, menu_next, is_highlighted);
-}
 
 void loop() {
   static uint32_t last_fix_count = 0;
@@ -1247,12 +1018,6 @@ void loop() {
 
   ttn_loop();
 
-  // menu timeout
-  if (in_menu && now - menu_idle_start > (MENU_TIMEOUT_S)*1000)
-    in_menu = false;
-
-  update_screen();
-
   // If any interrupts on PMIC, report the name
   // PEK button handler
   if (axp192_found && pmu_irq) {
@@ -1261,44 +1026,8 @@ void loop() {
     axp.readIRQ();
     irq_name = find_irq_name();
 
-    if (axp.isPEKShortPressIRQ())
-      menu_press();
-    else if (axp.isPEKLongtPressIRQ())  // want to turn OFF
-      menu_power_off();
-    else {
-      snprintf(buffer, sizeof(buffer), "\n* %s  ", irq_name);
-      screen_print(buffer);
-    }
+    snprintf(buffer, sizeof(buffer), "\n* %s  ", irq_name);
     axp.clearIRQ();
-    screen_last_active_ms = now;
-  }
-
-  // Middle Button handler
-  static uint32_t pressTime = 0;
-  if (!digitalRead(MIDDLE_BUTTON_PIN)) {
-    // Pressure is on
-    if (!pressTime) {  // just started a new press
-      pressTime = now;
-      screen_last_active_ms = now;
-      is_highlighted = true;
-    }
-  } else if (pressTime) {
-    // we just did a release
-    if (in_menu)
-      menu_selected();
-    else {
-      screen_print("\nSend! ");
-      justSendNow = true;
-    }
-    is_highlighted = false;
-
-    if (now - pressTime > 1000) {
-      // Was a long press
-    } else {
-      // Was a short press
-    }
-    pressTime = 0;  // Released
-    screen_last_active_ms = now;
   }
 
   update_activity();
