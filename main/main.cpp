@@ -336,28 +336,6 @@ void mapper_restore_prefs(void) {
   tx_interval_s = stationary_tx_interval_s;
 }
 
-void mapper_save_prefs(void) {
-  Preferences p;
-
-  Serial.println("Saving prefs.");
-  if (p.begin("mapper", false)) {
-    p.putFloat("min_dist", min_dist_moved);
-    p.putUInt("rest_wait", rest_wait_s);
-    p.putUInt("rest_tx", rest_tx_interval_s);
-    p.putUInt("tx_interval", stationary_tx_interval_s);
-    p.putUChar("sf", lorawan_sf);
-    p.end();
-  }
-}
-
-void mapper_erase_prefs(void) {
-  Preferences p;
-  if (p.begin("mapper", false)) {
-    p.clear();
-    p.end();
-  }
-}
-
 // LoRa message event callback
 void lora_msg_callback(uint8_t message) {
   static boolean seen_joined = false, seen_joining = false;
@@ -768,7 +746,6 @@ void low_power_sleep(uint32_t seconds) {
 // Power OFF -- does not return
 void clean_shutdown(void) {
   LMIC_shutdown();  // cleanly shutdown the radio
-  mapper_save_prefs();
   ttn_write_prefs();
   if (axp192_found) {
     axp.setChgLEDMode(AXP20X_LED_OFF);  // Surprisingly sticky if you don't set it
