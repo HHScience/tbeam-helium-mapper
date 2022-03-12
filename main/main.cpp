@@ -100,9 +100,6 @@ bool axp192_found = false;
 bool packetQueued;
 bool isJoined = false;
 
-boolean have_usb_power = true;
-uint8_t usb_power_count = 0;
-
 // Buffer for Payload frame
 static uint8_t txBuffer[11];
 
@@ -586,7 +583,6 @@ void axp192Init() {
     Serial.printf("Battery: %0.3fv\n", axp.getBattVoltage() / 1000.0);
     Serial.printf("SysIPSOut: %0.3fv\n", axp.getSysIPSOUTVoltage() / 1000.0);
     Serial.printf("isVBUSPlug? %s\n", axp.isVBUSPlug() ? "Yes" : "No");
-    have_usb_power = axp.isVBUSPlug();
     Serial.printf("isChargingEnable? %s\n", axp.isChargeingEnable() ? "Yes" : "No");
     // Doesn't work on AXP192 because it has a different charge current curve:
     // Serial.printf("ChargeCurrent: %.2fmA\n", axp.getSettingChargeCurrent());
