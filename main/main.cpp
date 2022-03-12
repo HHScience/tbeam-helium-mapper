@@ -817,6 +817,8 @@ void update_activity() {
     last_active_state = active_state;
   }
 
+
+  // Power off due to low battery
   uint32_t now = millis();
   float bat_volts = axp.getBattVoltage() / 1000;
   float charge_ma = axp.getBattChargeCurrent();
@@ -981,10 +983,6 @@ const char *find_irq_name(void) {
   return irq_name;
 }
 
-dr_t sf_list[] = {DR_SF7, DR_SF8, DR_SF9, DR_SF10};
-#define SF_ENTRIES (sizeof(sf_list) / sizeof(sf_list[0]))
-uint8_t sf_index = 0;
-
 void loop() {
   static uint32_t last_fix_count = 0;
   static boolean booted = true;
@@ -1019,6 +1017,7 @@ void loop() {
     booted = 0;
   }
 
+  // We have no GPS signal
   if (active_state == ACTIVITY_GPS_LOST) {
     now = millis();
     if ((last_gpslost_ms == 0) ||  // first time losing GPS?
@@ -1028,7 +1027,7 @@ void loop() {
     }
   } else {
     if (active_state != ACTIVITY_SLEEP)  // not sure about this
-      last_gpslost_ms = 0;               // Reset if we regained GPS
+      last_gpslost_ms = 0;               // Reset last gpslost time if we regained GPS
   }
 
   if (mapper_uplink() == MAPPER_UPLINK_SUCCESS) {

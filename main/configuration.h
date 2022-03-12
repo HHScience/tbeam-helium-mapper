@@ -69,9 +69,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define GPS_LOST_WAIT (5 * 60)   // How long to wait for a GPS fix before declaring failure
 #define GPS_LOST_PING (15 * 60)  // Without GPS reception, how often to send a non-mapper status packet
 
-#define SCREEN_IDLE_OFF_S  (2 * 60) // If there are no Uplinks or button presses sent for this long, turn the screen off.
-#define MENU_TIMEOUT_S 5  // Seconds to wait before exiting the menu.
-
 // Below this voltage, power off until USB power allows charging.  The PMIC also has a (safety) turn-off much lower than
 // this. We use a conservative 3.3v here since the battery will last longer.
 #define BATTERY_LOW_VOLTAGE 3.3
@@ -105,8 +102,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 // Select which T-Beam board is being used. Only uncomment one.
 //#define T_BEAM_V07  // AKA Rev0 (first board released) UNTESTED!  Expect bugs.
 #define T_BEAM_V10  // AKA Rev1 (second board released), this is the common "v1.1"
-
-#define LOGO_DELAY 2000  // Time to show logo on first boot (ms)
 
 #define DEBUG_PORT Serial   // Serial debug port
 #define SERIAL_BAUD 115200  // Serial debug baud rate (note that bootloader is fixed at 115200)
