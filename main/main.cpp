@@ -195,8 +195,6 @@ boolean send_uplink(uint8_t *txBuffer, uint8_t length, uint8_t fport, boolean co
   if (ttn_get_count() > MAX_FCOUNT) {
     Serial.println("FCount Rollover!");
 
-    delay(1000);  // Give some time to read the screen
-
     ttn_erase_prefs();
     ESP.restart();
   }
@@ -386,7 +384,6 @@ void lora_msg_callback(uint8_t message) {
   // We only want to say 'packetSent' for our packets (not packets needed for
   // joining)
   if (EV_TXCOMPLETE == message && packetQueued) {
-    //    screen_print("sent.\n");
     packetQueued = false;
     if (axp192_found)
       axp.setChgLEDMode(AXP20X_LED_OFF);
