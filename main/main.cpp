@@ -808,16 +808,19 @@ void update_activity() {
     last_active_state = active_state;
   }
 
+  uint32_t now = millis();
 
   // Power off due to low battery
-  uint32_t now = millis();
+  #if POWER_OFF_LOW_VOLTAGE
   float bat_volts = axp.getBattVoltage() / 1000;
   float charge_ma = axp.getBattChargeCurrent();
+
 
   if (axp192_found && axp.isBatteryConnect() && bat_volts < battery_low_voltage && charge_ma < 99.0) {
     Serial.println("Low Battery OFF");
     clean_shutdown();
   }
+  #endif
 
   // Here we just woke from a GPS-off long sleep.
   // When we have a fresh GPS fix, and the fix qualifies for mapper report, we can resume

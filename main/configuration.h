@@ -70,6 +70,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 // Below this voltage, power off until USB power allows charging.  The PMIC also has a (safety) turn-off much lower than
 // this. We use a conservative 3.3v here since the battery will last longer.
+#define POWER_OFF_LOW_VOLTAGE 0
 #define BATTERY_LOW_VOLTAGE 3.3
 
 // Confirmed packets (ACK request) conflict with the function of a Mapper and should not normally be enabled.
