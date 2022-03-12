@@ -809,9 +809,9 @@ void update_activity() {
 
   // Here we were unable to get a GPS fix for SLEEP_WAKE_TIME seconds
   // To save power, go back to sleep
-  if ((now - woke_time_ms > sleep_wake_time_s * 1000) && tGPS.sentencesWithFix() == woke_fix_count) {
-    active_state = ACTIVITY_SLEEP;
-  }
+  //if ((now - woke_time_ms > sleep_wake_time_s * 1000) && tGPS.sentencesWithFix() == woke_fix_count) {
+  //  active_state = ACTIVITY_SLEEP;
+  //}
 
   if (active_state == ACTIVITY_SLEEP) {
     low_power_sleep(tx_interval_s);
