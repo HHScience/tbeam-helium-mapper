@@ -86,6 +86,7 @@ unsigned int sleep_tx_interval_s = SLEEP_TX_INTERVAL;
 unsigned int sleep_wake_time_s = SLEEP_WAKE_TIME;
 
 unsigned int gps_lost_wait_s = GPS_LOST_WAIT;
+unsigned int gps_lost_wait_sleep_s = GPS_LOST_WAIT_SLEEP;
 unsigned int gps_lost_ping_s = GPS_LOST_PING;
 uint32_t last_fix_time = millis();
 
@@ -802,8 +803,8 @@ void update_activity() {
   if (active_state == ACTIVITY_WOKE) {
     if (tGPS.sentencesWithFix() != woke_fix_count && mapper_uplink() != MAPPER_UPLINK_BADFIX)
       active_state = ACTIVITY_SLEEP;
-    else if (now - woke_time_ms > gps_lost_wait_s * 1000)
-      active_state = ACTIVITY_GPS_LOST;
+    else if (now - woke_time_ms > gps_lost_wait_sleep_s * 1000)
+      active_state = ACTIVITY_SLEEP;
     return;  // else stay in WOKE until we make a good report
   }
 

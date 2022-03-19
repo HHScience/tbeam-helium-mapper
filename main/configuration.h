@@ -64,7 +64,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 // When searching for a GPS Fix, we may never find one due to obstruction, noise, or reduced availability.
 // Note that GPS Lost also counts as no-movement, so the Sleep tier above still applies
-#define GPS_LOST_WAIT (2 * 60)   // How long to wait for a GPS fix before declaring failure
+#define GPS_LOST_WAIT (0.5 * 60)   // How long to wait for a GPS fix before declaring failure
+#define GPS_LOST_WAIT_SLEEP (10 * 60)   // How long to wait for a GPS fix before declaring failure when waking from sleep
 #define GPS_LOST_PING (0.5 * 60)  // Without GPS reception, how often to send a non-mapper status packet
 
 // Below this voltage, power off until USB power allows charging.  The PMIC also has a (safety) turn-off much lower than
