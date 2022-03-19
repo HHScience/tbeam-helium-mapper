@@ -87,7 +87,7 @@ unsigned int sleep_wake_time_s = SLEEP_WAKE_TIME;
 
 unsigned int gps_lost_wait_s = GPS_LOST_WAIT;
 unsigned int gps_lost_ping_s = GPS_LOST_PING;
-uint32_t last_fix_time = 0;
+uint32_t last_fix_time = millis();
 
 float battery_low_voltage = BATTERY_LOW_VOLTAGE;
 float min_dist_moved = MIN_DIST;
@@ -220,7 +220,7 @@ bool gpslost_uplink(void) {
   if (!SEND_GPSLOST_UPLINKS)
     return false;
 
-  minutes_lost = (last_fix_time - millis()) / 1000 / 60;
+  minutes_lost = (millis() - last_fix_time) / 1000 / 60;
   pack_lat_lon(last_send_lat, last_send_lon);
   txBuffer[6] = battery_byte();
   txBuffer[7] = tGPS.satellites.value();
