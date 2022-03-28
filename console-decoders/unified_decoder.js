@@ -20,24 +20,22 @@ function Decoder(bytes, port) {
       decoded.latitude = latitude;
       decoded.longitude = longitude;
 
-      var altValue = ((bytes[6] << 8) >>> 0) + bytes[7];
-      var sign = bytes[6] & (1 << 7);
-      if (sign)
-        decoded.altitude = 0xFFFF0000 | altValue;
-      else
-        decoded.altitude = altValue;
+      decoded.altitude = bytes[6];
+    
+      decoded.location = latitude + ", " + longitude
 
-      decoded.speed = parseFloat((((bytes[8])) / 1.609).toFixed(2));
-      decoded.battery = parseFloat((bytes[9] / 100 + 2).toFixed(2));
-      decoded.sats = bytes[10];
+      decoded.speed = parseFloat((((bytes[7])) / 1.609).toFixed(2));
+      decoded.battery = parseFloat((bytes[8] / 100 + 2).toFixed(2));
+      decoded.sats = bytes[9];
+      decoded.uptime = bytes[10];
       decoded.accuracy = 2.5; // Bogus Accuracy required by Cargo/Mapper integration
+      decoded.status = "TRANSMITTING GPS"
       break;
     case 5: // System status
       decoded.last_latitude = latitude;
       decoded.last_longitude = longitude;
       decoded.battery = parseFloat((bytes[6] / 100 + 2).toFixed(2));
-      decoded.value = bytes[8];
-      decoded.status = bytes[7];
+      decoded.uptime = bytes[8];
       switch (bytes[7]) {
         case 1:
           decoded.status = "BOOT";
@@ -49,7 +47,9 @@ function Decoder(bytes, port) {
       decoded.last_longitude = longitude;
       decoded.battery = parseFloat((bytes[6] / 100 + 2).toFixed(2));
       decoded.sats = bytes[7];
-      decoded.minutes = ((bytes[8] << 8) >>> 0) + bytes[9];
+      decoded.uptime = bytes[8];
+      decoded.minutes = bytes[9];
+      decoded.status = "LOST GPS"
       break;
   }
 

@@ -145,6 +145,7 @@ void build_mapper_packet() {
   uint16_t altitudeGps;
   uint8_t sats;
   uint16_t speed;
+  unsigned long int uptime = millis() / 1000 / 60;
 
   lat = tGPS.location.lat();
   lon = tGPS.location.lng();
@@ -164,13 +165,13 @@ void build_mapper_packet() {
   sprintf(buffer, "Sats: %d", sats);
   Serial.println(buffer);
 
-  txBuffer[6] = (altitudeGps >> 8) & 0xFF;
-  txBuffer[7] = altitudeGps & 0xFF;
+  txBuffer[6] = altitudeGps & 0xFF;
 
-  txBuffer[8] = speed & 0xFF;
-  txBuffer[9] = battery_byte();
+  txBuffer[7] = speed & 0xFF;
+  txBuffer[8] = battery_byte();
 
-  txBuffer[10] = sats & 0xFF;
+  txBuffer[9] = sats & 0xFF;
+  txBuffer[10] = uptime & 0xFF;
 }
 
 // Helium requires a FCount reset sometime before hitting 0xFFFF
@@ -203,15 +204,16 @@ boolean send_uplink(uint8_t *txBuffer, uint8_t length, uint8_t fport, boolean co
   return true;
 }
 
-bool status_uplink(uint8_t status, uint8_t value) {
+bool status_uplink(uint8_t status) {
   if (!SEND_STATUS_UPLINKS)
     return false;
 
+  unsigned long int uptime = millis() / 1000 / 60;;
   pack_lat_lon(last_send_lat, last_send_lon);
   txBuffer[6] = battery_byte();
-  txBuffer[7] = status;
-  txBuffer[8] = value;
-  Serial.printf("Tx: STATUS %d %d\n", status, value);
+  txBuffer[7] = status & 0xFF;
+  txBuffer[8] = uptime & 0xFF; // Time since booted
+  Serial.printf("Tx: STATUS %d %d\n", uptime);
   return send_uplink(txBuffer, 9, FPORT_STATUS, 0);
 }
 
@@ -221,11 +223,12 @@ bool gpslost_uplink(void) {
   if (!SEND_GPSLOST_UPLINKS)
     return false;
 
+  unsigned long int uptime = millis() / 1000 / 60;
   minutes_lost = (millis() - last_fix_time) / 1000 / 60;
   pack_lat_lon(last_send_lat, last_send_lon);
   txBuffer[6] = battery_byte();
-  txBuffer[7] = tGPS.satellites.value();
-  txBuffer[8] = (minutes_lost >> 8) & 0xFF;
+  txBuffer[7] = tGPS.satellites.value() & 0xFF;
+  txBuffer[8] = uptime & 0xFF;
   txBuffer[9] = minutes_lost & 0xFF;
   Serial.printf("Tx: GPSLOST %d\n", minutes_lost);
   return send_uplink(txBuffer, 10, FPORT_GPSLOST, 0);
@@ -961,7 +964,7 @@ void loop() {
   update_activity();
 
   if (booted) {
-    status_uplink(STATUS_BOOT, 0);
+    status_uplink(STATUS_BOOT);
     booted = 0; // So we don't send status uplink again
   }
 
